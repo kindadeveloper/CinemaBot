@@ -11,6 +11,8 @@ headers = {
     }
 responseBySearch = None
 responseByID = None
+userMessage = None
+pageMarker = 1
 bot = tgb.TeleBot('1107504191:AAFKdrsCNgf5rZLfIl0woHZVWD0VxYZ5FxU')
 
 # счётчик запросов
@@ -18,7 +20,7 @@ def requestCount():
     readable = open("REQUEST_COUNTER.txt")
     flag = len(readable.read())
     readable.close()
-    if flag > 100:           # ограничение по количеству запросов
+    if flag > 200:           # ограничение по количеству запросов
         exit()
 
     with open("REQUEST_COUNTER.txt", "a+") as f:
@@ -40,21 +42,23 @@ def startMessage(message):
 
 def pagination(message):
     allTitles = responseBySearch["Search"]
-    paginationKeys = types.InlineKeyboardMarkup()
-    titlesList = ''
+    paginationKeys = types.InlineKeyboardMarkup(row_width=5)
+    titlesList = f'Search results 1-{len(allTitles)} of {responseBySearch["totalResults"]}\n'
     keysPart1 = []
     keysPart2 = []
     for title in allTitles:
         position = str(allTitles.index(title) + 1)
         keyNum = types.InlineKeyboardButton(text=position, callback_data=position)
-        keysPart1.append(keyNum) if int(position) <= 5 else keysPart2.append(keyNum)
+        keysPart1.append(keyNum) if int(position) <= len(allTitles)/2 else keysPart2.append(keyNum)
         titlesList += f'\n{position}. {title["Title"]} ({title["Year"]})'
     keyPrev = types.InlineKeyboardButton(text="<=", callback_data="prevPage")
     keyNext = types.InlineKeyboardButton(text="=>", callback_data="nextPage")
-    paginationKeys.add(*keysPart1)
-    paginationKeys.add(*keysPart2)
+    paginationKeys.add(*keysPart1, *keysPart2)
     paginationKeys.add(keyPrev, keyNext)
-    bot.send_message(message.chat.id, titlesList, reply_markup=paginationKeys)
+    if pageMarker == 1:
+        bot.send_message(message.chat.id, titlesList, reply_markup=paginationKeys)
+    else:
+        bot.send_message(message.chat.id, titlesList, reply_markup=paginationKeys)      # исправить на редактирование сообщения!!!
 
 # отправка постера с описанием
 def sendTitleByID(message):
@@ -80,12 +84,14 @@ def makeRequestByID(message, ID):
 # обработчик кнопок
 @bot.callback_query_handler(func=lambda call: True)
 def callback_worker(call):
+    global pageMarker
     if call.data == "searchByName":
         bot.send_message(call.message.chat.id, 'вводи название')
     elif call.data == "prevPage":
         bot.send_message(call.message.chat.id, "sup 2ch")
     elif call.data == "nextPage":
-        bot.send_message(call.message.chat.id, text="bye 2ch")
+        pageMarker += 1
+        makeRequestByName(userMessage)
     elif re.search('\d', call.data):
         makeRequestByID(call.message, responseBySearch["Search"][int(call.data) - 1]["imdbID"])
 
@@ -93,7 +99,7 @@ def callback_worker(call):
 def makeRequestByName(message):
     requestCount()
     global responseBySearch
-    querystring = {"page": "1", "r": "json", "s": message.text}
+    querystring = {"page": str(pageMarker), "r": "json", "s": message.text}
     response = requests.request("GET", URL, headers=headers, params=querystring)
     responseBySearch = json.loads(response.text)
     print(responseBySearch)
@@ -102,6 +108,8 @@ def makeRequestByName(message):
 # обработчик текстового сообщения от юзера
 @bot.message_handler(content_types=['text'])
 def getMessageText(message):
+    global userMessage
+    userMessage = message
     makeRequestByName(message)
 
 # проверка на наличие новых сообщений у сервера телеги
