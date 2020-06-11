@@ -3,6 +3,7 @@ from telebot import types
 import requests
 import json
 import re
+import time
 
 URL = "https://movie-database-imdb-alternative.p.rapidapi.com/"
 headers = {
@@ -41,6 +42,7 @@ def startMessage(message):
     bot.send_message(message.from_user.id, text=questionText, reply_markup=keyboard)
 
 def pagination(message):
+    print(message)
     allTitles = responseBySearch["Search"]
     paginationKeys = types.InlineKeyboardMarkup(row_width=5)
     titlesList = f'Search results 1-{len(allTitles)} of {responseBySearch["totalResults"]}\n'
@@ -55,10 +57,10 @@ def pagination(message):
     keyNext = types.InlineKeyboardButton(text="=>", callback_data="nextPage")
     paginationKeys.add(*keysPart1, *keysPart2)
     paginationKeys.add(keyPrev, keyNext)
-    if pageMarker == 1:
+    if not message.from_user.is_bot:
         bot.send_message(message.chat.id, titlesList, reply_markup=paginationKeys)
     else:
-        bot.send_message(message.chat.id, titlesList, reply_markup=paginationKeys)      # исправить на редактирование сообщения!!!
+        bot.edit_message_text(text=titlesList, chat_id=message.chat.id, message_id=message.message_id, reply_markup=paginationKeys)
 
 # отправка постера с описанием
 def sendTitleByID(message):
@@ -88,10 +90,11 @@ def callback_worker(call):
     if call.data == "searchByName":
         bot.send_message(call.message.chat.id, 'вводи название')
     elif call.data == "prevPage":
-        bot.send_message(call.message.chat.id, "sup 2ch")
+        pageMarker -= 1
+        makeRequestByName(call.message)
     elif call.data == "nextPage":
         pageMarker += 1
-        makeRequestByName(userMessage)
+        makeRequestByName(call.message)
     elif re.search('\d', call.data):
         makeRequestByID(call.message, responseBySearch["Search"][int(call.data) - 1]["imdbID"])
 
@@ -99,7 +102,7 @@ def callback_worker(call):
 def makeRequestByName(message):
     requestCount()
     global responseBySearch
-    querystring = {"page": str(pageMarker), "r": "json", "s": message.text}
+    querystring = {"page": str(pageMarker), "r": "json", "s": userMessage.text}
     response = requests.request("GET", URL, headers=headers, params=querystring)
     responseBySearch = json.loads(response.text)
     print(responseBySearch)
