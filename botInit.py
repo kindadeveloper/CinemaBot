@@ -64,6 +64,37 @@ def pagination(message):
     else:
         bot.edit_message_text(text=titlesList, chat_id=message.chat.id, message_id=message.message_id, reply_markup=paginationKeys)
 
+'''------------------------------------------------------------------------------------------------
+Получение ТОП 250 фильмов по оценке зрителей с сайта. 
+Запрос есть. Получаем список с ID каждого фильма (250). Метод get_top250()
+
+top250_url = "http://www.imdb.com/chart/top"
+
+def get_top250():
+    r = requests.get(top250_url)
+    html = r.text.split("\n")
+    result = []
+    for line in html:
+        line = line.rstrip("\n")
+        m = re.search(r'data-titleid="tt(\d+?)">', line)
+        if m:
+            _id = m.group(1)
+            result.append(_id)
+    return result
+
+Получение названий этих фильмов по ID. Метод get_titles_top
+
+def get_titles_top(titlesID:list):
+    ia = imdb.IMDb()
+    movies = []
+    for index in range(len(titlesID)):
+        movie = ia.get_movie(titlesID[index])
+        print(f"id: {titlesID[index]}, movie: {movie['title']}")
+
+'''
+        
+        
+        
 # отправка постера с описанием
 def sendTitleByID(message):
     posterCaption = f'{responseByID["Title"]} ({responseByID["Year"]})\n' \
