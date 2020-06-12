@@ -3,7 +3,6 @@ from telebot import types
 import requests
 import json
 import re
-import time
 
 URL = "https://movie-database-imdb-alternative.p.rapidapi.com/"
 headers = {
@@ -45,18 +44,21 @@ def pagination(message):
     print(message)
     allTitles = responseBySearch["Search"]
     paginationKeys = types.InlineKeyboardMarkup(row_width=5)
-    titlesList = f'Search results 1-{len(allTitles)} of {responseBySearch["totalResults"]}\n'
-    keysPart1 = []
-    keysPart2 = []
+    titlesList = f'Search results {(pageMarker-1)*10 + 1}-' \
+        f'{(pageMarker-1)*10 + len(allTitles)} of {responseBySearch["totalResults"]}\n'
+    keysRow1 = []
+    keysRow2 = []
+    navigationRow = []
     for title in allTitles:
         position = str(allTitles.index(title) + 1)
         keyNum = types.InlineKeyboardButton(text=position, callback_data=position)
-        keysPart1.append(keyNum) if int(position) <= len(allTitles)/2 else keysPart2.append(keyNum)
+        keysRow1.append(keyNum) if int(position) <= len(allTitles)/2 else keysRow2.append(keyNum)
         titlesList += f'\n{position}. {title["Title"]} ({title["Year"]})'
-    keyPrev = types.InlineKeyboardButton(text="<=", callback_data="prevPage")
-    keyNext = types.InlineKeyboardButton(text="=>", callback_data="nextPage")
-    paginationKeys.add(*keysPart1, *keysPart2)
-    paginationKeys.add(keyPrev, keyNext)
+    if pageMarker != 1:
+        navigationRow.append(types.InlineKeyboardButton(text="<=", callback_data="prevPage"))
+    if pageMarker*10 <= int(responseBySearch["totalResults"]):
+        navigationRow.append(types.InlineKeyboardButton(text="=>", callback_data="nextPage"))
+    paginationKeys.add(*keysRow1, *keysRow2, *navigationRow)
     if not message.from_user.is_bot:
         bot.send_message(message.chat.id, titlesList, reply_markup=paginationKeys)
     else:
