@@ -4,11 +4,17 @@ import requests
 import json
 import re
 
-URL = "https://movie-database-imdb-alternative.p.rapidapi.com/"
-headers = {
+URLIMDB = "https://movie-database-imdb-alternative.p.rapidapi.com/"
+URLIVA = "https://ivaee-internet-video-archive-entertainment-v1.p.rapidapi.com/entertainment/search/"
+headersIMDB = {
     'x-rapidapi-host': "movie-database-imdb-alternative.p.rapidapi.com",
     'x-rapidapi-key': "33e34af31fmsh45e531bff2a7970p1f7d96jsn6a0c3e75f69d"
     }
+headersIVA = {
+        'x-rapidapi-host': "ivaee-internet-video-archive-entertainment-v1.p.rapidapi.com",
+        'x-rapidapi-key': "33e34af31fmsh45e531bff2a7970p1f7d96jsn6a0c3e75f69d",
+        'content-type': "application/json"
+        }
 responseBySearch = None
 responseByID = None
 userMessage = None
@@ -16,18 +22,21 @@ pageMarker = 1
 bot = tgb.TeleBot('1107504191:AAFKdrsCNgf5rZLfIl0woHZVWD0VxYZ5FxU')
 
 # счётчик запросов
-def requestCount():
-    readable = open("REQUEST_COUNTER.txt")
+def requestCount(fileName):
+    readable = open(fileName)
     flag = len(readable.read())
     readable.close()
     if flag > 200:           # ограничение по количеству запросов
         exit()
 
-    with open("REQUEST_COUNTER.txt", "a+") as f:
+    with open(fileName, "a+") as f:
         f.write("1")
         flag += 1
         f.close()
-    print("Requests number: ", flag)
+    if fileName == "requestsPerDay.txt":
+        print("Requests per day: ", flag)
+    else:
+        print("Requests per month: ", flag)
 
 @bot.message_handler(commands=['start'])
 # метод ответа на команду
@@ -106,12 +115,20 @@ def sendTitleByID(message):
         f'\n{responseByID["Plot"]}'
     bot.send_photo(message.chat.id, responseByID["Poster"], posterCaption)
 
+# выполнение и обработка запроса по жанру фильма
+def makeRequestByGenre(message):
+    requestCount("requestsPerMonth.txt")
+    querystring = {"Genres": userMessage.text, "SortBy": "IvaRating", "ProgramTypes": "Movie"}
+    response = requests.request("GET", URLIVA, headers=headersIVA, params=querystring)
+    responseByGenre = json.loads(response.text)
+    print(responseByGenre)
+
 # выполнение и обработка запроса по ID фильма
 def makeRequestByID(message, ID):
-    requestCount()
+    requestCount("requestsPerDay.txt")
     global responseByID
     querystring = {"i": ID, "r": "json"}
-    response = requests.request("GET", URL, headers=headers, params=querystring)
+    response = requests.request("GET", URLIMDB, headers=headersIMDB, params=querystring)
     responseByID = json.loads(response.text)
     print(responseByID)
     sendTitleByID(message)
@@ -133,10 +150,10 @@ def callback_worker(call):
 
 # выполнение и обработка запроса по названию фильма
 def makeRequestByName(message):
-    requestCount()
+    requestCount("requestsPerDay.txt")
     global responseBySearch
     querystring = {"page": str(pageMarker), "r": "json", "s": userMessage.text}
-    response = requests.request("GET", URL, headers=headers, params=querystring)
+    response = requests.request("GET", URLIMDB, headers=headersIMDB, params=querystring)
     responseBySearch = json.loads(response.text)
     print(responseBySearch)
     pagination(message)
@@ -146,7 +163,8 @@ def makeRequestByName(message):
 def getMessageText(message):
     global userMessage
     userMessage = message
-    makeRequestByName(message)
+    # makeRequestByName(message)
+    makeRequestByGenre(message)
 
 # проверка на наличие новых сообщений у сервера телеги
 bot.polling(none_stop=True, interval=0)
