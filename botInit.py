@@ -15,6 +15,7 @@ headersIVA = {
         'x-rapidapi-key': "33e34af31fmsh45e531bff2a7970p1f7d96jsn6a0c3e75f69d",
         'content-type': "application/json"
         }
+pagesData = {}
 nextPageToken = None
 userMessage = None
 pageMarker = 1
@@ -49,7 +50,6 @@ def startMessage(message):
     bot.send_message(message.from_user.id, text=questionText, reply_markup=keyboard)
 
 def pagination(message, resp):
-    print(message)
     global nextPageToken
     normAPI = None
     allTitles = None
@@ -74,7 +74,7 @@ def pagination(message, resp):
         if normAPI:
             callbackData = f'{position}@{resp["Search"][int(position) - 1]["imdbID"]}'
         else:
-            callbackData = f'{position}@'
+            callbackData = f'{position}@{title["Source"]["Title"]}'
         keyNum = types.InlineKeyboardButton(text=position, callback_data=callbackData)
         keysRow1.append(keyNum) if int(position) <= len(allTitles)/2 else keysRow2.append(keyNum)
         if normAPI:
@@ -91,6 +91,12 @@ def pagination(message, resp):
     else:
         bot.edit_message_text(text=titlesList, chat_id=message.chat.id, message_id=message.message_id, reply_markup=paginationKeys)
 
+def IVAtoIMDB(message, title):
+    querystring = {"page": 1, "r": "json", "s": title}
+    response = json.loads(requests.request("GET", URLIMDB, headers=headersIMDB, params=querystring).text)
+    requestCount("requestsPerDay.txt")
+    makeRequestByID(message, response["Search"][0]["imdbID"])
+
 # обработчик кнопок
 @bot.callback_query_handler(func=lambda call: True)
 def callback_worker(call):
@@ -98,19 +104,22 @@ def callback_worker(call):
     if call.data == "searchByName":
         bot.send_message(call.message.chat.id, 'вводи название')
     elif call.data == "prevPage":
+        pageMarker -= 1
         if nextPageToken == None:
-            pageMarker -= 1
             makeRequestByName(call.message)
         else:
-            makeRequestByGenre(call.message, nextPageToken)
+            makeRequestByGenre(call.message, False)
     elif call.data == "nextPage":
+        pageMarker += 1
         if nextPageToken == None:
-            pageMarker += 1
             makeRequestByName(call.message)
         else:
             makeRequestByGenre(call.message, nextPageToken)
     elif re.search('\d', call.data.split('@')[0]):
-        makeRequestByID(call.message, call.data.split('@')[1])
+        if nextPageToken:
+            IVAtoIMDB(call.message, call.data.split('@')[1])
+        else:
+            makeRequestByID(call.message, call.data.split('@')[1])
 
 '''------------------------------------------------------------------------------------------------
 Получение ТОП 250 фильмов по оценке зрителей с сайта. 
@@ -155,13 +164,18 @@ def sendTitleByID(message, respID):
 
 # выполнение и обработка запроса по жанру фильма
 def makeRequestByGenre(message, token):
-    requestCount("requestsPerMonth.txt")
-    querystring = {"Genres": userMessage.text, "SortBy": "IvaRating", "ProgramTypes": "Movie"}
-    if token: querystring.update({"NextPageToken": token})
-    response = requests.request("GET", URLIVA, headers=headersIVA, params=querystring)
-    responseByGenre = json.loads(response.text)
-    print(responseByGenre)
-    pagination(message, responseByGenre)
+    if len(pagesData["Genre"]) < pageMarker:
+        requestCount("requestsPerMonth.txt")
+        querystring = {"Genres": userMessage.text, "SortBy": "IvaRating", "ProgramTypes": "Movie"}
+        if token: querystring.update({"NextPageToken": token})
+        response = requests.request("GET", URLIVA, headers=headersIVA, params=querystring)
+        responseByGenre = json.loads(response.text)
+        pagesData["Genre"].append(responseByGenre)
+        print(responseByGenre)
+        pagination(message, responseByGenre)
+    else:
+        print(pagesData["Genre"][pageMarker - 1])
+        pagination(message, pagesData["Genre"][pageMarker - 1])
 
 # выполнение и обработка запроса по ID фильма
 def makeRequestByID(message, ID):
@@ -187,6 +201,7 @@ def getMessageText(message):
     global userMessage
     userMessage = message
     makeRequestByName(message)
+    # pagesData.update({"Genre": []})
     # makeRequestByGenre(message, False)
 
 # проверка на наличие новых сообщений у сервера телеги
