@@ -26,12 +26,17 @@ userMessage = None
 pageMarker = 1
 bot = tgb.TeleBot('1107504191:AAFKdrsCNgf5rZLfIl0woHZVWD0VxYZ5FxU')
 
-# счётчик запросов
+
 def requestCount(fileName):
+    '''
+    Counts requests made per day or per month. Maximum value is 200 requests per day.
+    
+    fileName is either a text or byte string giving the name (and the path if the file isn't in the current working directory) of the file to be opened.
+    '''
     readable = open(fileName)
     flag = len(readable.read())
     readable.close()
-    if flag > 200:           # ограничение по количеству запросов
+    if flag > 200:          
         exit()
 
     with open(fileName, "a+") as f:
@@ -46,6 +51,9 @@ def requestCount(fileName):
 @bot.message_handler(commands=['start'])
 # метод ответа на команду
 def startMessage(message):
+    '''
+    Greeting message, which pops up after entering /start.
+    '''
     # init keyboard
     keyboard = types.InlineKeyboardMarkup()
     # кнопка поиска по названию
@@ -131,6 +139,15 @@ def callback_worker(call):
             makeRequestByID(call.message, call.data.split('@')[1])
 
 def get_top250():
+    '''
+    Gives the top 250 movies from IMDb rate.
+    Returns a dictionary with 2 key-value pairs:
+    - 'Search' : list of 250 dictionaries each containing:
+        - title of the movie;
+        - year of release;
+        - imdb ID.
+    - 'totalResult' : number of found results (default=250)
+    '''
     r = requests.get(TOP250_URL)
     html = r.text.split("\n")
     movies_id = []
@@ -157,6 +174,15 @@ def get_top250():
 
         
 def get_coming_soon():
+    '''
+    Gives the coming soon movies infrotmation.
+    Returns a dictionary with 2 key-value pairs:
+    - 'Search' : list of dictionaries each containing:
+        - title of the movie;
+        - year of release;
+        - imdb ID.
+    - 'totalResult' : number of found results.
+    '''
     d = str(datetime.date.today())[:7]
     r = requests.get(COMING_SOON_URL+d)
     html = r.text.split("\n")
