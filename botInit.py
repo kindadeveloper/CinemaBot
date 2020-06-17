@@ -108,13 +108,17 @@ def callback_worker(call):
         if nextPageToken == None:
             makeRequestByName(call.message)
         else:
-            makeRequestByGenre(call.message, False)
+            # makeRequestByGenre(call.message, False)
+            # makeRequestByYear(call.message, False)
+            makeRequestByDirector(call.message, False)
     elif call.data == "nextPage":
         pageMarker += 1
         if nextPageToken == None:
             makeRequestByName(call.message)
         else:
-            makeRequestByGenre(call.message, nextPageToken)
+            # makeRequestByGenre(call.message, nextPageToken)
+            # makeRequestByYear(call.message, nextPageToken)
+            makeRequestByDirector(call.message, nextPageToken)
     elif re.search('\d', call.data.split('@')[0]):
         if nextPageToken:
             IVAtoIMDB(call.message, call.data.split('@')[1])
@@ -162,6 +166,36 @@ def sendTitleByID(message, respID):
         f'\n{respID["Plot"]}'
     bot.send_photo(message.chat.id, respID["Poster"], posterCaption)
 
+# выполнение и обработка запроса по режиссёру фильма
+def makeRequestByDirector(message, token):
+    if len(pagesData["Director"]) < pageMarker:
+        requestCount("requestsPerMonth.txt")
+        querystring = {"PersonNames": "James Cameron", "Jobs": "Director", "SortBy": "IvaRating", "ProgramTypes": "Movie"}
+        if token: querystring.update({"NextPageToken": token})
+        response = requests.request("GET", URLIVA, headers=headersIVA, params=querystring)
+        responseByDirector = json.loads(response.text)
+        pagesData["Director"].append(responseByDirector)
+        print(responseByDirector)
+        pagination(message, responseByDirector)
+    else:
+        print(pagesData["Director"][pageMarker - 1])
+        pagination(message, pagesData["Director"][pageMarker - 1])
+
+# выполнение и обработка запроса по году фильма
+def makeRequestByYear(message, token):
+    if len(pagesData["Year"]) < pageMarker:
+        requestCount("requestsPerMonth.txt")
+        querystring = {"YearRange_Start": userMessage.text, "YearRange_End": userMessage.text, "SortBy": "IvaRating", "ProgramTypes": "Movie"}
+        if token: querystring.update({"NextPageToken": token})
+        response = requests.request("GET", URLIVA, headers=headersIVA, params=querystring)
+        responseByYear = json.loads(response.text)
+        pagesData["Year"].append(responseByYear)
+        print(responseByYear)
+        pagination(message, responseByYear)
+    else:
+        print(pagesData["Year"][pageMarker - 1])
+        pagination(message, pagesData["Year"][pageMarker - 1])
+
 # выполнение и обработка запроса по жанру фильма
 def makeRequestByGenre(message, token):
     if len(pagesData["Genre"]) < pageMarker:
@@ -203,6 +237,10 @@ def getMessageText(message):
     makeRequestByName(message)
     # pagesData.update({"Genre": []})
     # makeRequestByGenre(message, False)
+    # pagesData.update({"Year": []})
+    # makeRequestByYear(message, False)
+    # pagesData.update({"Director": []})
+    # makeRequestByDirector(message, False)
 
 # проверка на наличие новых сообщений у сервера телеги
 bot.polling(none_stop=True, interval=0)
