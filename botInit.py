@@ -153,6 +153,25 @@ def get_top250():
                             "imdbID":m_id}, "totalResults":250}
 
         
+coming_soon_url = "https://www.imdb.com/movies-coming-soon/2020-12"
+def get_coming_soon(url):
+    #f = open("test.txt", "w")
+    r = requests.get(url)
+    html = r.text.split("\n")
+    movies_id = []
+    ms = []
+    for line in html:
+        line = line.rstrip("\n")
+        #f.write("\n" + line)
+        #<a href="/title/tt6264654/""
+        m = re.search(r'<a href="/title/tt(\d+)/"', line)
+        ms.append(m)
+        if m:
+            _id = m.group(1)
+            movies_id.append(_id)
+    #f.close()
+    return set(movies_id)
+        
 
 # отправка постера с описанием
 def sendTitleByID(message, respID):
