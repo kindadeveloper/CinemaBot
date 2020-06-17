@@ -3,6 +3,7 @@ from telebot import types
 import requests
 import json
 import re
+import imdb
 
 URLIMDB = "https://movie-database-imdb-alternative.p.rapidapi.com/"
 URLIVA = "https://ivaee-internet-video-archive-entertainment-v1.p.rapidapi.com/entertainment/search/"
@@ -124,35 +125,33 @@ def callback_worker(call):
             IVAtoIMDB(call.message, call.data.split('@')[1])
         else:
             makeRequestByID(call.message, call.data.split('@')[1])
-
-'''------------------------------------------------------------------------------------------------
-Получение ТОП 250 фильмов по оценке зрителей с сайта. 
-Запрос есть. Получаем список с ID каждого фильма (250). Метод get_top250()
-
+#Топ 250 фильмов 
 top250_url = "http://www.imdb.com/chart/top"
-
 def get_top250():
     r = requests.get(top250_url)
     html = r.text.split("\n")
-    result = []
+    movies_id = []
     for line in html:
         line = line.rstrip("\n")
         m = re.search(r'data-titleid="tt(\d+?)">', line)
         if m:
             _id = m.group(1)
-            result.append(_id)
-    return result
+            movies_id.append(_id)
 
-Получение названий этих фильмов по ID. Метод get_titles_top
-
-def get_titles_top(titlesID:list):
     ia = imdb.IMDb()
     movies = []
-    for index in range(len(titlesID)):
-        movie = ia.get_movie(titlesID[index])
-        print(f"id: {titlesID[index]}, movie: {movie['title']}")
+    responseTop = {}
+    
+    for index in range(len(movies_id)):
+        movie = ia.get_movie(movies_id[index])
+        m_id = movies_id[index]
+        title = movie['title']
+        year = str(movie['year'])
+        responseTop = {"Search":{
+                            "Title":title, 
+                            "Year":year, 
+                            "imdbID":m_id}, "totalResults":250}
 
-'''
         
 
 # отправка постера с описанием
