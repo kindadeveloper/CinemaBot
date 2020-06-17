@@ -7,6 +7,10 @@ import imdb
 
 URLIMDB = "https://movie-database-imdb-alternative.p.rapidapi.com/"
 URLIVA = "https://ivaee-internet-video-archive-entertainment-v1.p.rapidapi.com/entertainment/search/"
+
+TOP250_URL = "http://www.imdb.com/chart/top"
+COMING_SOON_URL = "https://www.imdb.com/movies-coming-soon/"
+
 headersIMDB = {
     'x-rapidapi-host': "movie-database-imdb-alternative.p.rapidapi.com",
     'x-rapidapi-key': "33e34af31fmsh45e531bff2a7970p1f7d96jsn6a0c3e75f69d"
@@ -125,10 +129,9 @@ def callback_worker(call):
             IVAtoIMDB(call.message, call.data.split('@')[1])
         else:
             makeRequestByID(call.message, call.data.split('@')[1])
-#Топ 250 фильмов 
-top250_url = "http://www.imdb.com/chart/top"
+
 def get_top250():
-    r = requests.get(top250_url)
+    r = requests.get(TOP250_URL)
     html = r.text.split("\n")
     movies_id = []
     for line in html:
@@ -140,37 +143,45 @@ def get_top250():
 
     ia = imdb.IMDb()
     movies = []
-    responseTop = {}
+    responseTop = {"Search":[], "totalResults":len(movies_id)}
     
     for index in range(len(movies_id)):
         movie = ia.get_movie(movies_id[index])
         m_id = movies_id[index]
         title = movie['title']
         year = str(movie['year'])
-        responseTop = {"Search":{
-                            "Title":title, 
-                            "Year":year, 
-                            "imdbID":m_id}, "totalResults":250}
+        tmp = {"Title":title, "Year":year, "imdbID":m_id}
+        responseTop.add(tmp)
+    
+    return responseTop
 
         
-coming_soon_url = "https://www.imdb.com/movies-coming-soon/2020-12"
-def get_coming_soon(url):
-    #f = open("test.txt", "w")
-    r = requests.get(url)
+def get_coming_soon():
+    d = str(datetime.date.today())[:7]
+    r = requests.get(COMING_SOON_URL+d)
     html = r.text.split("\n")
     movies_id = []
     ms = []
     for line in html:
         line = line.rstrip("\n")
-        #f.write("\n" + line)
-        #<a href="/title/tt6264654/""
         m = re.search(r'<a href="/title/tt(\d+)/"', line)
         ms.append(m)
         if m:
             _id = m.group(1)
             movies_id.append(_id)
-    #f.close()
-    return set(movies_id)
+    movies_id = list(set(movies_id))
+    ia = imdb.IMDb()
+    responseComingSoon = {"Search":[], "totalResults":len(movies_id)}
+    
+    for index in range(len(movies_id)):
+        movie = ia.get_movie(movies_id[index])
+        m_id = movies_id[index]
+        title = movie['title']
+        year = str(movie['year'])
+        tmp = {"Title":title, "Year":year, "imdbID":m_id}
+        responseComingSoon.add(tmp)
+    
+    return responseComingSoon   
         
 
 # отправка постера с описанием
