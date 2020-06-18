@@ -168,10 +168,9 @@ def get_top250():
         title = movie['title']
         year = str(movie['year'])
         tmp = {"Title":title, "Year":year, "imdbID":m_id}
-        responseTop.add(tmp)
-    
-    return responseTop
+        responseTop["Search"].append(tmp)
 
+    return responseTop
         
 def get_coming_soon():
     '''
@@ -197,7 +196,7 @@ def get_coming_soon():
             movies_id.append(_id)
     movies_id = list(set(movies_id))
     ia = imdb.IMDb()
-    responseComingSoon = {"Search":[], "totalResults":len(movies_id)}
+    responseComingSoon = {"Search" : [], "totalResult" : len(movies_id)}
     
     for index in range(len(movies_id)):
         movie = ia.get_movie(movies_id[index])
@@ -205,9 +204,9 @@ def get_coming_soon():
         title = movie['title']
         year = str(movie['year'])
         tmp = {"Title":title, "Year":year, "imdbID":m_id}
-        responseComingSoon.add(tmp)
-    
-    return responseComingSoon   
+        responseComingSoon["Search"].append(tmp)
+
+    return responseComingSoon
         
 
 # отправка постера с описанием
