@@ -24,6 +24,10 @@ pagesData = {}
 nextPageToken = None
 userMessage = None
 pageMarker = 1
+
+top250_id = []
+coming_soon_id = []
+
 bot = tgb.TeleBot('1107504191:AAFKdrsCNgf5rZLfIl0woHZVWD0VxYZ5FxU')
 
 
@@ -138,7 +142,8 @@ def callback_worker(call):
         else:
             makeRequestByID(call.message, call.data.split('@')[1])
 
-def get_top250():
+
+def get_top250(url=TOP250_URL):
     '''
     Gives the top 250 movies from IMDb rate.
     Returns a dictionary with 2 key-value pairs:
@@ -147,32 +152,24 @@ def get_top250():
         - year of release;
         - imdb ID.
     - 'totalResult' : number of found results (default=250)
+    
+    url is a url of the resource from which top is taken.
+    By default, it's IMDb url.
     '''
-    r = requests.get(TOP250_URL)
+    global top250_id
+    r = requests.get(url)
     html = r.text.split("\n")
-    movies_id = []
     for line in html:
         line = line.rstrip("\n")
-        m = re.search(r'data-titleid="tt(\d+?)">', line)
+        m = re.search(r'data-titleid="tt(\d+?)"', line)
         if m:
             _id = m.group(1)
-            movies_id.append(_id)
+            top250_id.append(_id)
+    top250_id = list(set(top250_id))
+    return top250_id
 
-    ia = imdb.IMDb()
-    movies = []
-    responseTop = {"Search":[], "totalResults":len(movies_id)}
-    
-    for index in range(len(movies_id)):
-        movie = ia.get_movie(movies_id[index])
-        m_id = movies_id[index]
-        title = movie['title']
-        year = str(movie['year'])
-        tmp = {"Title":title, "Year":year, "imdbID":m_id}
-        responseTop["Search"].append(tmp)
 
-    return responseTop
-        
-def get_coming_soon():
+def get_coming_soon(url=COMING_SOON_URL):
     '''
     Gives the coming soon movies infrotmation.
     Returns a dictionary with 2 key-value pairs:
@@ -181,34 +178,52 @@ def get_coming_soon():
         - year of release;
         - imdb ID.
     - 'totalResult' : number of found results.
+    
+    url is a url of the resource from which upcomings are taken.
+    By default, it's IMDb url.
     '''
+    global coming_soon_id
+    # current date: 2020-06-01 in format 2020-06
     d = str(datetime.date.today())[:7]
-    r = requests.get(COMING_SOON_URL+d)
+    r = requests.get(url+d)
     html = r.text.split("\n")
-    movies_id = []
-    ms = []
     for line in html:
         line = line.rstrip("\n")
         m = re.search(r'<a href="/title/tt(\d+)/"', line)
-        ms.append(m)
         if m:
             _id = m.group(1)
-            movies_id.append(_id)
-    movies_id = list(set(movies_id))
-    ia = imdb.IMDb()
-    responseComingSoon = {"Search" : [], "totalResult" : len(movies_id)}
+            coming_soon_id.append(_id)
+    coming_soon_id = list(set(coming_soon_id))
+
+    return coming_soon_id
+
+        
+def getDict(movies_id: list, page=1):
+    '''
+    Add description. 
     
-    for index in range(len(movies_id)):
-        movie = ia.get_movie(movies_id[index])
-        m_id = movies_id[index]
+    movies_id is a list of movie IDs from IMDb. IDs must be strings in format '010201'.
+    page by default is 1, ignored if length of movies_id is less than 10.
+    '''
+    ia = imdb.IMDb()
+    result_dict = {"Search": [], "totalResult": len(movies_id)}
+
+    if len(movies_id) > 10:
+        proper_ids = movies_id[(page-1)*10:(page*10)]
+    else:
+        proper_ids = movies_id
+
+    for index in range(len(proper_ids)):
+        movie = ia.get_movie(proper_ids[index])
+        m_id = proper_ids[index]
         title = movie['title']
         year = str(movie['year'])
-        tmp = {"Title":title, "Year":year, "imdbID":m_id}
-        responseComingSoon["Search"].append(tmp)
+        tmp = {"Title": title, "Year": year, "imdbID": "tt" + m_id}
+        result_dict["Search"].append(tmp)
 
-    return responseComingSoon
-        
-
+    return result_dict
+    
+    
 # отправка постера с описанием
 def sendTitleByID(message, respID):
     posterCaption = f'{respID["Title"]} ({respID["Year"]})\n' \
