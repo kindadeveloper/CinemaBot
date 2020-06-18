@@ -3,7 +3,7 @@ from telebot import types
 import requests
 import json
 import re
-import imdb
+from imdb import IMDb
 
 URLIMDB = "https://movie-database-imdb-alternative.p.rapidapi.com/"
 URLIVA = "https://ivaee-internet-video-archive-entertainment-v1.p.rapidapi.com/entertainment/search/"
@@ -205,7 +205,7 @@ def getDict(movies_id: list, page=1):
     movies_id is a list of movie IDs from IMDb. IDs must be strings in format '010201'.
     page by default is 1, ignored if length of movies_id is less than 10.
     '''
-    ia = imdb.IMDb()
+    ia = IMDb()
     result_dict = {"Search": [], "totalResult": len(movies_id)}
 
     if len(movies_id) > 10:
@@ -215,10 +215,10 @@ def getDict(movies_id: list, page=1):
 
     for index in range(len(proper_ids)):
         movie = ia.get_movie(proper_ids[index])
-        m_id = proper_ids[index]
+        m_id = "tt{0}".format(proper_ids[index])
         title = movie['title']
         year = str(movie['year'])
-        tmp = {"Title": title, "Year": year, "imdbID": "tt" + m_id}
+        tmp = {"Title": title, "Year": year, "imdbID": m_id}
         result_dict["Search"].append(tmp)
 
     return result_dict
