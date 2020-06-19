@@ -3,8 +3,8 @@ from telebot import types
 import requests
 import json
 import re
+from imdb import IMDb
 import random
-import imdb
 
 URLIMDB = "https://movie-database-imdb-alternative.p.rapidapi.com/"
 URLIVA = "https://ivaee-internet-video-archive-entertainment-v1.p.rapidapi.com/entertainment/search/"
@@ -21,7 +21,7 @@ headersIVA = {
         'x-rapidapi-key': "33e34af31fmsh45e531bff2a7970p1f7d96jsn6a0c3e75f69d",
         'content-type': "application/json"
         }
-pagesData = {"Genre": {}, "Year": {}, "Director": {}, "Name": {}}
+pagesData = {"Genre": {}, "Year": {}, "Director": {}, "Name": {}, "Topchik": {}}
 nextPageToken = None
 userMessage = None
 pageMarker = 1
@@ -35,7 +35,6 @@ bot = tgb.TeleBot('1107504191:AAFKdrsCNgf5rZLfIl0woHZVWD0VxYZ5FxU')
 def requestCount(fileName):
     '''
     Counts requests made per day or per month. Maximum value is 200 requests per day.
-
     fileName is either a text or byte string giving the name (and the path if the file isn't in the current working directory) of the file to be opened.
     '''
     readable = open(fileName)
@@ -101,22 +100,13 @@ def IVAtoIMDB(message, title):
     requestCount("requestsPerDay.txt")
     makeRequestByID(message, response["Search"][0]["imdbID"])
 
-# обработчик кнопок
-@bot.callback_query_handler(func=lambda call: True)
-def callback_worker(call):
-    global pageMarker
-    delimiter = call.data.split('@')
-    if delimiter[0] == "prevPage":
-        pageMarker -= 1
-        makeRequestBy(call.message, False, delimiter[1])
-    elif delimiter[0] == "nextPage":
-        pageMarker += 1
-        makeRequestBy(call.message, nextPageToken, delimiter[1])
-    elif re.search('\d', delimiter[0]):
-        if nextPageToken:
-            IVAtoIMDB(call.message, delimiter[1])
-        else:
-            makeRequestByID(call.message, delimiter[1])
+def randomMovie(message):
+    querystring = {"Minimum_IvaRating":random.randint(50, 100)}
+    response = json.loads(requests.request("GET", URLIVA,
+                                               headers=headersIVA,
+                                               params=querystring).text)
+    randomResp = random.choice(response["Hits"])["Source"]["Title"]
+    IVAtoIMDB(message, randomResp)
 
 def get_top250(url=TOP250_URL):
     '''
@@ -127,7 +117,6 @@ def get_top250(url=TOP250_URL):
         - year of release;
         - imdb ID.
     - 'totalResult' : number of found results (default=250)
-
     url is a url of the resource from which top is taken.
     By default, it's IMDb url.
     '''
@@ -153,7 +142,6 @@ def get_coming_soon(url=COMING_SOON_URL):
         - year of release;
         - imdb ID.
     - 'totalResult' : number of found results.
-
     url is a url of the resource from which upcomings are taken.
     By default, it's IMDb url.
     '''
@@ -175,12 +163,11 @@ def get_coming_soon(url=COMING_SOON_URL):
 def getDict(movies_id: list, page=1):
     '''
     Add description.
-
     movies_id is a list of movie IDs from IMDb. IDs must be strings in format '010201'.
     page by default is 1, ignored if length of movies_id is less than 10.
     '''
     ia = IMDb()
-    result_dict = {"Search": [], "totalResult": len(movies_id)}
+    result_dict = {"Search": [], "totalResults": len(movies_id)}
 
     if len(movies_id) > 10:
         proper_ids = movies_id[(page-1)*10:(page*10)]
@@ -212,7 +199,7 @@ def checkResponse(message, response):
     if "Search" in response.keys() and response["Response"] == "False":
         bot.send_message(message.chat.id, "Sorry, nothing was found")
         return True
-    elif len(response["Hits"]) == 0:
+    elif "Hits" in response.keys() and len(response["Hits"]) == 0:
         bot.send_message(message.chat.id, "Sorry, nothing was found")
         return True
     else: return False
@@ -223,7 +210,7 @@ def makeRequestBy(message, token, filterIdent):
     response = None
     if filterIdent == "Genre":
         requestCount("requestsPerMonth.txt")
-        querystring = {"Genres": userMessage.text,
+        querystring = {"Genres": userMessage.text.capitalize(),
                        "SortBy": "IvaRating",
                        "ProgramTypes": "Movie"}
         response = json.loads(requests.request("GET", URLIVA,
@@ -240,7 +227,8 @@ def makeRequestBy(message, token, filterIdent):
                                                params=querystring).text)
     elif filterIdent == "Director":
         requestCount("requestsPerMonth.txt")
-        querystring = {"PersonNames": userMessage.text,
+        dir_name = " ".join([name.capitalize() for name in userMessage.text.split(" ")])
+        querystring = {"PersonNames": dir_name,
                        "Jobs": "Director",
                        "SortBy": "IvaRating",
                        "ProgramTypes": "Movie"}
@@ -254,7 +242,8 @@ def makeRequestBy(message, token, filterIdent):
                                                headers=headersIMDB,
                                                params=querystring).text)
     if len(pagesData[filterIdent][userMessage.text]) < pageMarker:
-        if checkResponse(message, response): return 0
+        if userMessage.text != "/start":
+            if checkResponse(message, response): return 0
         if token: querystring.update({"NextPageToken": token})
         pagesData[filterIdent][userMessage.text].append(response)
         print(response)
@@ -272,37 +261,94 @@ def makeRequestByID(message, ID):
     print(responseByID)
     sendTitleByID(message, responseByID)
 
-def randomMovie(message):
-    querystring = {"Minimum_IvaRating":random.randint(50, 100)}
-    response = json.loads(requests.request("GET", URLIVA,
-                                               headers=headersIVA,
-                                               params=querystring).text)
-    randomResp = random.choice(response["Hits"])["Source"]["Title"]
-    IVAtoIMDB(message, randomResp)
-
+d = 0
 @bot.message_handler(commands=['start'])
 # метод ответа на команду
 def startMessage(message):
     '''
     Greeting message, which pops up after entering /start.
     '''
+    global d
     # init keyboard
     keyboard = types.InlineKeyboardMarkup()
     # кнопка поиска по названию
     randomMovieKey = types.InlineKeyboardButton(text="Random movie", callback_data="random")
-    topKey = types.InlineKeyboardButton(text="Top 250 movies", callback_data="top250")
-    afishaKey = types.InlineKeyboardButton(text="Now in cinema", callback_data="afisha")
+    topKey = types.InlineKeyboardButton(text="Top 250 movies link", url=TOP250_URL)
+    afishaKey = types.InlineKeyboardButton(text="Coming soon in cinema", url=COMING_SOON_URL)
     filterKey = types.InlineKeyboardButton(text="Filters", callback_data="filter")
     keyboard.add(filterKey, topKey, afishaKey, randomMovieKey)
+    #EDIT
     questionText = "Choose an option"
+    d = message
     bot.send_message(message.from_user.id, text=questionText, reply_markup=keyboard)
+
+def filterMessage():
+    '''
+    EDIT
+    Other message.
+    '''
+    # init keyboard
+    keyboard = types.InlineKeyboardMarkup()
+    # кнопка поиска по названию
+    SearchByTitleKey = types.InlineKeyboardButton(text="Search by title", callback_data="SearchByTitle")
+    SearchByGenreKey = types.InlineKeyboardButton(text="Search by genre", callback_data="SearchByGenre")
+    SearchByYearKey = types.InlineKeyboardButton(text="Search by year", callback_data="SearchByYear")
+    SearchByDirKey = types.InlineKeyboardButton(text="Search by director", callback_data="SearchByDir")
+    keyboard.add(SearchByTitleKey, SearchByGenreKey, SearchByYearKey, SearchByDirKey)
+    return keyboard
+
+def checkMessage(message):
+    global userMessage
+    while userMessage == None:
+        pass
+
+# обработчик кнопок
+@bot.callback_query_handler(func=lambda call: True)
+def callback_worker(call):
+    global pageMarker
+    global userMessage
+    global d 
+    delimiter = call.data.split('@')
+    if delimiter[0] == "prevPage":
+        pageMarker -= 1
+        makeRequestBy(call.message, False, delimiter[1])
+    elif delimiter[0] == "nextPage":
+        pageMarker += 1
+        makeRequestBy(call.message, nextPageToken, delimiter[1])
+    elif re.search('\d', delimiter[0]):
+        if nextPageToken:
+            IVAtoIMDB(call.message, delimiter[1])
+        else:
+            makeRequestByID(call.message, delimiter[1])
+    elif call.data == "random":
+        randomMovie(call.message)
+        #bot.send_message(call.message.chat.id, "Top 250")
+    elif call.data == "filter":
+        bot.send_message(call.message.chat.id, "Choose the filter", reply_markup=filterMessage())
+    elif call.data == "SearchByTitle":
+        checkMessage(call.message)
+        print(type(userMessage))
+        pagesData["Name"].update({f"{userMessage.text}": []})
+        makeRequestBy(call.message, False, "Name")
+    elif call.data == "SearchByGenre":
+        checkMessage(call.message)
+        pagesData["Genre"].update({f"{userMessage.text}": []})
+        makeRequestBy(call.message, False, "Genre")
+    elif call.data == "SearchByYear":
+        checkMessage(call.message)
+        pagesData["Year"].update({f"{userMessage.text}": []})
+        makeRequestBy(call.message, False, "Year")
+    elif call.data == "SearchByDir":
+        checkMessage(call.message)
+        pagesData["Director"].update({f"{userMessage.text}": []})
+        makeRequestBy(call.message, False, "Director")
+
 
 # обработчик текстового сообщения от юзера
 @bot.message_handler(content_types=['text'])
 def getMessageText(message):
     global userMessage
     userMessage = message
-    # randomMovie(message)
     # pagesData["Name"].update({f"{message.text}": []})
     # makeRequestBy(message, False, "Name")
     # pagesData["Genre"].update({f"{message.text}": []})
