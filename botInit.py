@@ -3,6 +3,7 @@ from telebot import types
 import requests
 import json
 import re
+import random
 import imdb
 
 URLIMDB = "https://movie-database-imdb-alternative.p.rapidapi.com/"
@@ -271,6 +272,14 @@ def makeRequestByID(message, ID):
     print(responseByID)
     sendTitleByID(message, responseByID)
 
+def randomMovie(message):
+    querystring = {"Minimum_IvaRating":random.randint(50, 100)}
+    response = json.loads(requests.request("GET", URLIVA,
+                                               headers=headersIVA,
+                                               params=querystring).text)
+    randomResp = random.choice(response["Hits"])["Source"]["Title"]
+    IVAtoIMDB(message, randomResp)
+
 @bot.message_handler(commands=['start'])
 # метод ответа на команду
 def startMessage(message):
@@ -293,6 +302,7 @@ def startMessage(message):
 def getMessageText(message):
     global userMessage
     userMessage = message
+    # randomMovie(message)
     # pagesData["Name"].update({f"{message.text}": []})
     # makeRequestBy(message, False, "Name")
     # pagesData["Genre"].update({f"{message.text}": []})
