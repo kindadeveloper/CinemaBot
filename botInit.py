@@ -21,7 +21,7 @@ headersIVA = {
         'x-rapidapi-key': "33e34af31fmsh45e531bff2a7970p1f7d96jsn6a0c3e75f69d",
         'content-type': "application/json"
         }
-pagesData = {"Genre": {}, "Year": {}, "Director": {}, "Name": {}, "Topchik": {}}
+pagesData = {"Genre": {}, "Year": {}, "Director": {}, "Name": {}}
 nextPageToken = None
 userMessage = None
 pageMarker = 1
