@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-token = '1107504191:AAFKdrsCNgf5rZLfIl0woHZVWD0VxYZ5FxU'
+token = '1107504191:AAFKdrsCNgf5rZLfIl0woHZVWD0VxY****'
 
 headersIMDB = {
     'x-rapidapi-host': "movie-database-imdb-alternative.p.rapidapi.com",
